@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestDEX - Inovasi Tanpa Batas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        :root { --primary: #ff8a00; --dark-bg: #0f0f0f; --card-bg: #1a1a1a; --text: #ffffff; --text-dim: #999; }
+        body { font-family: 'Inter', sans-serif; background: var(--dark-bg); color: var(--text); margin: 0; padding-bottom: 90px; overflow-x: hidden; }
+        
+        /* Header */
+        .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; background: #151515; border-bottom: 1px solid #222; position: sticky; top: 0; z-index: 1000; }
+        .brand h1 { font-size: 1.2rem; margin: 0; color: var(--primary); letter-spacing: 1px; }
+        .brand span { font-size: 0.6rem; color: var(--text-dim); display: block; font-weight: bold; }
+        .btn-connect { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+
+        .container { padding: 15px; max-width: 500px; margin: 0 auto; }
+        .card { background: var(--card-bg); border-radius: 20px; padding: 20px; margin-bottom: 15px; border: 1px solid #252525; }
+        .section-title { font-size: 0.9rem; color: var(--primary); margin-bottom: 15px; display: flex; align-items: center; border-left: 3px solid var(--primary); padding-left: 10px; }
+
+        /* Swap UI - Any to Any */
+        .swap-box { background: #111; padding: 15px; border-radius: 15px; margin-bottom: 5px; position: relative; }
+        .swap-box label { font-size: 0.7rem; color: var(--text-dim); display: block; margin-bottom: 8px; }
+        .input-group { display: flex; justify-content: space-between; align-items: center; }
+        .input-group input { background: transparent; border: none; color: white; font-size: 1.5rem; width: 60%; outline: none; }
+        .token-select { background: #252525; border-radius: 12px; padding: 5px 10px; display: flex; align-items: center; cursor: pointer; font-weight: bold; font-size: 0.85rem; border: 1px solid #333; }
+        
+        .swap-divider { height: 40px; display: flex; justify-content: center; align-items: center; position: relative; z-index: 2; margin: -10px 0; }
+        .swap-icon { background: #1a1a1a; border: 3px solid var(--dark-bg); border-radius: 50%; padding: 8px; color: var(--primary); cursor: pointer; }
+
+        /* Assets List */
+        .asset-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #252525; }
+        .asset-info { display: flex; align-items: center; gap: 12px; }
+        .asset-logo { width: 32px; height: 32px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+        .asset-name b { display: block; font-size: 0.9rem; }
+        .asset-name span { font-size: 0.7rem; color: var(--text-dim); }
+        .asset-balance { text-align: right; }
+        .asset-balance .val { display: block; font-weight: bold; font-size: 0.95rem; }
+        .asset-balance .sub { font-size: 0.7rem; color: #4caf50; }
+
+        /* Navigation Bottom */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #151515; display: flex; align-items: center; border-top: 1px solid #222; z-index: 1000; padding: 10px 0; }
+        .nav-item { flex: 1; text-align: center; color: var(--text-dim); font-size: 0.7rem; cursor: pointer; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { display: block; font-size: 1.3rem; margin-bottom: 2px; }
+        
+        /* Center Swap Button */
+        .nav-swap-btn { width: 60px; height: 60px; background: var(--primary); border-radius: 18px; margin-top: -40px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(255,138,0,0.4); border: 4px solid var(--dark-bg); }
+        .nav-swap-btn i { font-size: 1.8rem; color: white; }
+
+        .main-btn { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; background: var(--primary); color: white; margin-top: 15px; }
+        .main-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; }
+        .modal-content { position: absolute; bottom: 0; background: #1a1a1a; width: 100%; border-radius: 25px 25px 0 0; padding: 20px; box-sizing: border-box; max-height: 70%; overflow-y: auto; }
+        .token-item { padding: 15px; border-bottom: 1px solid #252525; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand">
+            <h1>TestDEX</h1>
+            <span>Powered SidraChain</span>
+        </div>
+        <button id="connectBtn" class="btn-connect" onclick="toggleConnect()">Connect Wallet</button>
+    </div>
+
+    <div class="container">
+        <div id="page-wallet" class="page active">
+            <div class="card" style="background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);">
+                <div class="section-title">Account Status</div>
+                <div id="wallet-info" style="font-size: 0.85rem; color: var(--text-dim);">Silakan hubungkan dompet untuk melihat ringkasan aset Anda di Sidra Chain.</div>
+            </div>
+            <div class="card">
+                <div class="section-title">Network Info</div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                    <span>Jaringan</span>
+                    <span style="color: #4caf50;">● Sidra Mainnet</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-swap" class="page">
+            <div class="card">
+                <div class="section-title">Exchange</div>
+                <div class="swap-box">
+                    <label>FROM</label>
+                    <div class="input-group">
+                        <input type="number" id="pay-amount" placeholder="0.0" oninput="calculateSwap()">
+                        <div class="token-select" onclick="openTokenModal('pay')">
+                            <span id="pay-symbol">SDA</span> ▾
+                        </div>
+                    </div>
+                </div>
+                <div class="swap-divider"><div class="swap-icon" onclick="switchTokens()">⇵</div></div>
+                <div class="swap-box">
+                    <label>TO (ESTIMATE)</label>
+                    <div class="input-group">
+                        <input type="text" id="receive-amount" placeholder="0.0" readonly>
+                        <div class="token-select" onclick="openTokenModal('receive')">
+                            <span id="receive-symbol">QIA</span> ▾
+                        </div>
+                    </div>
+                </div>
+                <div id="rate-info" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 15px; text-align: center;">1 SDA : 7.24 QIA</div>
+                <button id="swapBtn" class="main-btn" disabled onclick="executeSwap()">Connect Wallet First</button>
+            </div>
+        </div>
+
+        <div id="page-assets" class="page">
+            <div class="card">
+                <div class="section-title">Your Assets</div>
+                <div id="asset-list">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="nav-bar">
+        <div class="nav-item active" onclick="navTo('wallet', this)"><i/i>Home</div>
+        <div class="nav-item" onclick="navTo('swap', this)">
+            <div class="nav-swap-btn" style="margin: -40px auto 5px auto;"><i>⇅</i></div>
+            Swap
+        </div>
+        <div class="nav-item" onclick="navTo('assets', this)"><i/i>Assets</div>
+    </nav>
+
+    <div id="tokenModal" class="modal" onclick="closeTokenModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="section-title">Select Token</div>
+            <div id="modal-list"></div>
+        </div>
+    </div>
+
+<script>
+    const TOKENS = [
+        { sym: 'SDA', name: 'Sidra Coin', addr: null, type: 'native' },
+        { sym: 'QIA', name: 'Qia Token', addr: '0x1393641e18964c469983B3F439dF7b0F0E658A2C', type: 'erc20' },
+        { sym: 'KEDER', name: 'Wong Keder', addr: '0xEC73dDC00a32adE86DFDa2311dDcD25CEeD45053', type: 'erc20' },
+        { sym: 'NAT', name: 'Nathalie', addr: '0xca91f993345CFaFD6e0188347FB6d115bB6ed731', type: 'erc20' },
+        { sym: 'USDT', name: 'Tether USD', addr: '0xBcd27707F604F9f9be1a5f8c5C17Fee0F9630B38', type: 'erc20' },
+    ];
+
+    const ABI = ["function balanceOf(address) view returns (uint256)", "function getRate() view returns (uint256)"];
+    let provider, signer, userAddr, currentModalTarget = '';
+    let payToken = TOKENS[0], receiveToken = TOKENS[1];
+
+    async function toggleConnect() {
+        if (!window.ethereum) return alert("Gunakan MetaMask/OKX Browser");
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            userAddr = await signer.getAddress();
+            document.getElementById('connectBtn').innerText = userAddr.slice(0,6) + "..." + userAddr.slice(-4);
+            document.getElementById('swapBtn').innerText = "Swap";
+            document.getElementById('swapBtn').disabled = false;
+            updateUI();
+        } catch (e) { alert("Koneksi Gagal"); }
+    }
+
+    function navTo(page, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('page-' + page).classList.add('active');
+        el.closest('.nav-item')?.classList.add('active');
+        if(page === 'swap') document.querySelectorAll('.nav-item')[1].classList.add('active');
+    }
+
+    async function updateUI() {
+        if (!userAddr) return;
+        
+        // Update Assets Tab
+        const listDiv = document.getElementById('asset-list');
+        listDiv.innerHTML = '';
+        for (let t of TOKENS) {
+            let bal = "0.00";
+            try {
+                if (t.type === 'native') {
+                    const b = await provider.getBalance(userAddr);
+                    bal = ethers.utils.formatEther(b);
+                } else {
+                    const c = new ethers.Contract(t.addr, ABI, provider);
+                    const b = await c.balanceOf(userAddr);
+                    bal = ethers.utils.formatEther(b);
+                }
+            } catch(e) {}
+            
+            listDiv.innerHTML += `
+                <div class="asset-row">
+                    <div class="asset-info">
+                        <div class="asset-logo">${t.sym[0]}</div>
+                        <div class="asset-name"><b>${t.name}</b><span>${t.sym}</span></div>
+                    </div>
+                    <div class="asset-balance">
+                        <span class="val">${new Intl.NumberFormat('en-US').format(parseFloat(bal))} ${t.sym}</span>
+                    </div>
+                </div>`;
+        }
+        calculateSwap();
+    }
+
+    function openTokenModal(target) {
+        currentModalTarget = target;
+        const modalList = document.getElementById('modal-list');
+        modalList.innerHTML = '';
+        TOKENS.forEach(t => {
+            modalList.innerHTML += `<div class="token-item" onclick="selectToken('${t.sym}')"><b>${t.sym}</b> - ${t.name}</div>`;
+        });
+        document.getElementById('tokenModal').style.display = 'block';
+    }
+
+    function selectToken(sym) {
+        const token = TOKENS.find(t => t.sym === sym);
+        if (currentModalTarget === 'pay') {
+            payToken = token;
+            document.getElementById('pay-symbol').innerText = sym;
+        } else {
+            receiveToken = token;
+            document.getElementById('receive-symbol').innerText = sym;
+        }
+        closeTokenModal();
+        calculateSwap();
+    }
+
+    function closeTokenModal() { document.getElementById('tokenModal').style.display = 'none'; }
+
+    async function calculateSwap() {
+        const amt = parseFloat(document.getElementById('pay-amount').value);
+        if (!amt || amt <= 0) {
+            document.getElementById('receive-amount').value = "0.0";
+            return;
+        }
+        // Simulasi Logika Rate (Bisa diganti dengan data contract asli)
+        let rate = 1; 
+        if (payToken.sym === 'USDT') rate = 0.5;
+        if (payToken.sym === receiveToken.sym) rate = 1;
+
+        const result = amt * rate;
+        document.getElementById('receive-amount').value = new Intl.NumberFormat('en-US', {minimumFractionDigits:2}).format(result);
+        document.getElementById('rate-info').innerText = `Rate: 1 ${payToken.sym} = ${rate} ${receiveToken.sym}`;
+    }
+
+    function switchTokens() {
+        const temp = payToken;
+        payToken = receiveToken;
+        receiveToken = temp;
+        document.getElementById('pay-symbol').innerText = payToken.sym;
+        document.getElementById('receive-symbol').innerText = receiveToken.sym;
+        calculateSwap();
+    }
+
+    async function executeSwap() {
+        alert("Memulai Transaksi Swap: " + payToken.sym + " ke " + receiveToken.sym);
+        // Implementasi tx.wait() diletakkan di sini
+    }
+
+    setInterval(updateUI, 20000);
+</script>
+</body>
+</html>
